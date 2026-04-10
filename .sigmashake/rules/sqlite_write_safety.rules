@@ -1,0 +1,53 @@
+# sqlite_write_safety.rules
+# Technology: sqlite | Capability: write
+
+rule sqlite-block-load-extension {
+  enabled true
+  priority 95
+  severity error
+  DENY write
+  IF path GLOB "**/*" AND content CONTAINS "sqlite3_enable_load_extension(" AND content NOT CONTAINS "0)"
+  OR path GLOB "**/*" AND content CONTAINS "load_extension("
+  MESSAGE "Enabling SQLite loadable extensions is dangerous and can lead to arbitrary code execution. Ensure it is disabled (0) unless absolutely required and strictly controlled."
+}
+
+rule sqlite-warn-writable-schema {
+  enabled true
+  priority 90
+  severity error
+  DENY write
+  IF path GLOB "**/*" AND content LINE_REGEX "(?i)PRAGMA\\s+writable_schema\\s*=\\s*(ON|1|true)"
+  MESSAGE "Setting PRAGMA writable_schema=ON allows arbitrary modifications to sqlite_master, which can corrupt the database and lead to security vulnerabilities. This should not be used in production code."
+}
+
+rule sqlite-warn-trusted-schema {
+  enabled true
+  priority 85
+  severity warning
+  ASK write
+  IF path GLOB "**/*" AND content LINE_REGEX "(?i)PRAGMA\\s+trusted_schema\\s*=\\s*(ON|1|true)"
+  MESSAGE "Setting PRAGMA trusted_schema=ON allows malicious triggers or virtual tables to execute unauthorized functions. It is strongly recommended to set PRAGMA trusted_schema=OFF."
+  PROMPT "Are you sure you want to enable trusted_schema? This reduces security against malicious database files."
+}
+
+rule sqlite-block-string-concatenation-sql {
+  enabled true
+  priority 90
+  severity error
+  DENY write
+  IF path GLOB "**/*.js" AND content LINE_REGEX "db\\.(run|get|all|exec)\\(\\s*[\"`'].*\\$.*[\"`']"
+  OR path GLOB "**/*.ts" AND content LINE_REGEX "db\\.(run|get|all|exec)\\(\\s*[\"`'].*\\$.*[\"`']"
+  OR path GLOB "**/*.py" AND content LINE_REGEX "(?i)(execute|executemany)\\s*\\(\\s*f[\"'].*\\{.*\\}.*[\"']"
+  OR path GLOB "**/*.py" AND content LINE_REGEX "(?i)(execute|executemany)\\s*\\(\\s*[\"'].*%.*[\"']\\s*%"
+  MESSAGE "Constructing SQL queries using string interpolation or concatenation causes SQL injection vulnerabilities. Use parameterized queries (e.g. ? or :name placeholders) instead."
+}
+
+rule sqlite-warn-public-db-path {
+  enabled true
+  priority 90
+  severity warning
+  ASK write
+  IF path GLOB "**/*" AND content LINE_REGEX "(/var/www/html/|public/|static/).*\\.db"
+  MESSAGE "Placing an SQLite database file in a public web directory (like /var/www/html or public/) exposes the entire database to public download."
+  PROMPT "Are you sure this database should be accessible via the web server? Ensure it contains no sensitive data."
+}
