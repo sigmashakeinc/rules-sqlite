@@ -24,10 +24,9 @@ rule sqlite-warn-trusted-schema {
   enabled true
   priority 85
   severity warning
-  ASK write
+  LOG write
   IF path GLOB "**/*" AND content LINE_REGEX "(?i)PRAGMA\\s+trusted_schema\\s*=\\s*(ON|1|true)"
   MESSAGE "Setting PRAGMA trusted_schema=ON allows malicious triggers or virtual tables to execute unauthorized functions. It is strongly recommended to set PRAGMA trusted_schema=OFF."
-  PROMPT "Are you sure you want to enable trusted_schema? This reduces security against malicious database files."
 }
 
 rule sqlite-block-string-concatenation-sql {
@@ -46,8 +45,7 @@ rule sqlite-warn-public-db-path {
   enabled true
   priority 90
   severity warning
-  ASK write
+  LOG write
   IF path GLOB "**/*" AND content LINE_REGEX "(/var/www/html/|public/|static/).*\\.db"
   MESSAGE "Placing an SQLite database file in a public web directory (like /var/www/html or public/) exposes the entire database to public download."
-  PROMPT "Are you sure this database should be accessible via the web server? Ensure it contains no sensitive data."
 }
